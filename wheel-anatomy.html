@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Anatomy of a Python Wheel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Libre+Franklin:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f1114;
+    --surface: #171a1f;
+    --border: #262a31;
+    --fg: #c8cdd4;
+    --dim: #5a6270;
+    --accent: #D4A853;
+    --blue: #8B9DAF;
+    --mono: 'IBM Plex Mono', 'Menlo', monospace;
+    --serif: 'Newsreader', 'Georgia', serif;
+    --sans: 'Libre Franklin', 'Helvetica Neue', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  ::selection { background: #D4A85340; color: #fff; }
+
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap { max-width: 960px; margin: 0 auto; }
+
+  /* Masthead */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 48px 32px 40px;
+  }
+  .kicker {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 2.5px;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-family: var(--serif);
+    font-size: clamp(32px, 5vw, 44px);
+    font-weight: 500;
+    color: #eef0f3;
+    line-height: 1.15;
+    letter-spacing: -0.5px;
+    max-width: 600px;
+  }
+  .subtitle {
+    font-family: var(--serif);
+    font-style: italic;
+    font-size: 17px;
+    color: var(--dim);
+    margin-top: 16px;
+    line-height: 1.6;
+    max-width: 540px;
+  }
+
+  /* Nav */
+  nav {
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  nav::-webkit-scrollbar { display: none; }
+  nav button {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--dim);
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 16px 20px;
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+    white-space: nowrap;
+  }
+  nav button:hover { color: var(--fg); }
+  nav button.active {
+    color: var(--accent);
+    font-weight: 600;
+    border-bottom-color: var(--accent);
+  }
+  nav button .num {
+    margin-right: 8px;
+    font-weight: 400;
+    color: #3a3f48;
+  }
+  nav button.active .num { color: var(--accent); }
+
+  /* Content area */
+  main { padding: 40px 32px 80px; }
+
+  .section { display: none; }
+  .section.active {
+    display: block;
+    animation: enter 0.3s ease;
+  }
+  @keyframes enter {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  h2 {
+    font-family: var(--serif);
+    font-size: 28px;
+    font-weight: 500;
+    color: #eef0f3;
+    margin-bottom: 28px;
+    line-height: 1.25;
+    letter-spacing: -0.3px;
+  }
+
+  .prose {
+    font-family: var(--serif);
+    font-size: 15px;
+    line-height: 1.75;
+    color: var(--blue);
+    max-width: 600px;
+  }
+  .prose + .prose { margin-top: 16px; }
+
+  .code-surface {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 28px 32px;
+    font-family: var(--mono);
+  }
+
+  pre {
+    font-family: var(--mono);
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  /* Filename segments */
+  .filename-row {
+    font-size: 14px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    margin-bottom: 20px;
+    line-height: 2.2;
+  }
+  .seg { font-weight: 600; }
+  .seg-sep { color: #3a3f48; margin: 0 1px; }
+  .seg-ext { color: #3a3f48; }
+  .seg-labels { display: flex; flex-wrap: wrap; gap: 16px; }
+  .seg-label-group { min-width: 80px; }
+  .seg-label-title {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin-bottom: 3px;
+  }
+  .seg-label-value {
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 500;
+  }
+
+  /* Tags table */
+  .tag-table { width: 100%; }
+  .tag-header {
+    display: grid;
+    grid-template-columns: 100px 100px 1fr 1fr;
+    gap: 0;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+  }
+  .tag-header span {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+  .tag-row {
+    display: grid;
+    grid-template-columns: 100px 100px 1fr 1fr;
+    gap: 0;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: start;
+  }
+  .tag-axis { font-family: var(--mono); font-size: 13px; color: var(--accent); font-weight: 600; }
+  .tag-pure { font-family: var(--mono); font-size: 13px; color: var(--fg); }
+  .tag-compiled { font-family: var(--mono); font-size: 12px; color: var(--blue); white-space: pre-line; line-height: 1.8; }
+  .tag-note { font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--dim); line-height: 1.5; }
+
+  /* Structure tree */
+  .tree-item {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    padding: 6px 0;
+  }
+  .tree-item.top-border {
+    border-top: 1px solid var(--border);
+    padding-top: 18px;
+    margin-top: 12px;
+  }
+  .tree-name {
+    font-family: var(--mono);
+    font-size: 13px;
+    min-width: 220px;
+    flex-shrink: 0;
+  }
+  .tree-name.key { color: var(--accent); font-weight: 600; }
+  .tree-name.dir { color: var(--blue); font-weight: 600; }
+  .tree-name.etc { color: #3a3f48; }
+  .tree-desc { font-family: var(--serif); font-style: italic; font-size: 13px; color: var(--dim); }
+
+  /* Key files */
+  .file-block + .file-block { margin-top: 40px; }
+  .file-title {
+    font-family: var(--mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 16px;
+    letter-spacing: 0.5px;
+  }
+  .file-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .file-sample {
+    font-family: var(--mono);
+    font-size: 12px;
+    line-height: 1.9;
+    color: var(--blue);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 20px 24px;
+  }
+
+  /* Constraints table */
+  .constraint-row {
+    display: grid;
+    grid-template-columns: 160px 120px 1fr;
+    gap: 16px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: baseline;
+  }
+  .constraint-label { font-family: var(--mono); font-size: 12px; letter-spacing: 0.5px; color: var(--fg); font-weight: 500; }
+  .constraint-value { font-family: var(--mono); font-size: 14px; color: var(--accent); font-weight: 600; }
+  .constraint-note { font-family: var(--serif); font-style: italic; font-size: 14px; color: var(--dim); line-height: 1.55; }
+
+  /* Variant example */
+  .variant-example {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.8;
+    color: var(--accent);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 24px 28px;
+    margin-top: 28px;
+  }
+
+  /* Footer */
+  footer {
+    margin-top: 56px;
+    padding-top: 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+  }
+  .pep-ref { min-width: 130px; }
+  .pep-ref-id { font-family: var(--mono); font-size: 12px; color: var(--fg); font-weight: 600; margin-bottom: 2px; }
+  .pep-ref-desc { font-family: var(--serif); font-style: italic; font-size: 12px; color: var(--dim); }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    header, main { padding-left: 20px; padding-right: 20px; }
+    .tag-header, .tag-row { grid-template-columns: 80px 80px 1fr; }
+    .tag-header span:last-child, .tag-row > :last-child { display: none; }
+    .file-grid { grid-template-columns: 1fr; }
+    .constraint-row { grid-template-columns: 1fr; gap: 4px; }
+    .tree-name { min-width: 160px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <div class="kicker">Python Packaging Reference</div>
+    <h1>Anatomy of a<br>Wheel File</h1>
+    <p class="subtitle">The .whl format is a renamed ZIP archive with a governed filename and a fixed internal structure. It is the standard distribution format for Python packages.</p>
+  </header>
+
+  <nav id="nav"></nav>
+
+  <main class="wrap" id="content"></main>
+</div>
+
+<script>
+const TABS = [
+  { id: "filename", label: "Filename" },
+  { id: "tags", label: "Tags" },
+  { id: "structure", label: "Structure" },
+  { id: "files", label: "Key Files" },
+  { id: "limits", label: "Constraints" },
+  { id: "future", label: "Variants" },
+];
+
+const PEPS = [
+  ["PEP 427", "Wheel format specification"],
+  ["PEP 440", "Version identification"],
+  ["PEP 503", "Simple repository API"],
+  ["PEP 658", "Metadata in Simple API"],
+  ["PEP 777", "Wheel format updates"],
+  ["PEP 825", "Wheel variants"],
+];
+
+function buildNav() {
+  const nav = document.getElementById("nav");
+  TABS.forEach((t, i) => {
+    const btn = document.createElement("button");
+    btn.dataset.tab = t.id;
+    btn.innerHTML = `<span class="num">${String(i + 1).padStart(2, "0")}</span>${t.label}`;
+    btn.onclick = () => activate(t.id);
+    nav.appendChild(btn);
+  });
+}
+
+function activate(id) {
+  document.querySelectorAll("nav button").forEach(b => b.classList.toggle("active", b.dataset.tab === id));
+  document.querySelectorAll(".section").forEach(s => s.classList.toggle("active", s.id === "s-" + id));
+  // re-trigger animation
+  const el = document.getElementById("s-" + id);
+  if (el) { el.style.animation = "none"; el.offsetHeight; el.style.animation = ""; }
+}
+
+function esc(s) { return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function buildContent() {
+  const main = document.getElementById("content");
+  main.innerHTML = `
+
+  <!-- FILENAME -->
+  <div class="section" id="s-filename">
+    <h2>The Filename Is the Contract</h2>
+    <div class="code-surface" style="margin-bottom:32px">
+      <div class="filename-row">
+        <span class="seg" style="color:var(--accent)">numpy</span><span class="seg-sep">-</span><span class="seg" style="color:var(--accent)">2.2.0</span><span class="seg-sep">-</span><span class="seg" style="color:var(--blue)">cp313</span><span class="seg-sep">-</span><span class="seg" style="color:var(--blue)">cp313</span><span class="seg-sep">-</span><span class="seg" style="color:var(--blue)">manylinux_2_17_x86_64</span><span class="seg-ext">.whl</span>
+      </div>
+      <div class="seg-labels">
+        <div class="seg-label-group"><div class="seg-label-title">Distribution</div><div class="seg-label-value" style="color:var(--accent)">numpy</div></div>
+        <div class="seg-label-group"><div class="seg-label-title">Version</div><div class="seg-label-value" style="color:var(--accent)">2.2.0</div></div>
+        <div class="seg-label-group"><div class="seg-label-title">Python</div><div class="seg-label-value" style="color:var(--blue)">cp313</div></div>
+        <div class="seg-label-group"><div class="seg-label-title">ABI</div><div class="seg-label-value" style="color:var(--blue)">cp313</div></div>
+        <div class="seg-label-group"><div class="seg-label-title">Platform</div><div class="seg-label-value" style="color:var(--blue)">manylinux_2_17_x86_64</div></div>
+      </div>
+    </div>
+    <p class="prose">A wheel is a ZIP archive with a governed filename. The name alone tells an installer everything it needs to determine compatibility&mdash;no download required, no code executed. pip and uv parse these tags against the host system and select the most specific match.</p>
+    <p class="prose">The three compatibility axes&mdash;Python version, ABI, and platform&mdash;are the only dimensions currently available. Pure Python packages use the universal tag <code style="color:var(--accent);font-family:var(--mono);font-size:14px">py3-none-any</code>. Compiled extensions must be precise: <code style="color:var(--blue);font-family:var(--mono);font-size:14px">cp313</code> locks to CPython 3.13, <code style="color:var(--blue);font-family:var(--mono);font-size:14px">manylinux_2_17_x86_64</code> encodes a minimum glibc of 2.17 on x86-64, and <code style="color:var(--blue);font-family:var(--mono);font-size:14px">musllinux</code> variants exist for Alpine. The platform tag is a composite of CPU architecture and OS, which is why Linux tags are more complex than <code style="color:var(--blue);font-family:var(--mono);font-size:14px">win_amd64</code> or <code style="color:var(--blue);font-family:var(--mono);font-size:14px">macosx_11_0_arm64</code>.</p>
+  </div>
+
+  <!-- TAGS -->
+  <div class="section" id="s-tags">
+    <h2>Compatibility Tags</h2>
+    <div class="tag-table">
+      <div class="tag-header">
+        <span>Axis</span><span>Pure Python</span><span>Compiled</span><span></span>
+      </div>
+      <div class="tag-row">
+        <div class="tag-axis">Python</div>
+        <div class="tag-pure">py3</div>
+        <div class="tag-compiled">cp313  cp314  pp310</div>
+        <div class="tag-note">py3 = any Python 3 interpreter. cp = CPython, pp = PyPy. Number is the minor version.</div>
+      </div>
+      <div class="tag-row">
+        <div class="tag-axis">ABI</div>
+        <div class="tag-pure">none</div>
+        <div class="tag-compiled">cp313  abi3</div>
+        <div class="tag-note">none = pure Python. abi3 = CPython Stable ABI, forward-compatible across versions.</div>
+      </div>
+      <div class="tag-row">
+        <div class="tag-axis">Platform</div>
+        <div class="tag-pure">any</div>
+        <div class="tag-compiled">manylinux_2_17_x86_64
+musllinux_1_2_aarch64
+macosx_11_0_arm64
+win_amd64</div>
+        <div class="tag-note">Linux tags encode glibc or musl version + CPU arch. macOS encodes minimum OS version + arch.</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STRUCTURE -->
+  <div class="section" id="s-structure">
+    <h2>Internal Structure</h2>
+    <div class="code-surface">
+      <div class="tree-item"><span class="tree-name dir">numpy/</span><span class="tree-desc">Package source&mdash;installed verbatim into site-packages</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name">__init__.py</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name dir">core/</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name dir">linalg/</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name etc">...</span></div>
+      <div class="tree-item top-border"><span class="tree-name dir">numpy-2.2.0.dist-info/</span><span class="tree-desc">Metadata directory&mdash;the package manifest</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name key">METADATA</span><span class="tree-desc">Name, version, dependencies, description</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name key">WHEEL</span><span class="tree-desc">Format version, build tool, purity flag</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name key">RECORD</span><span class="tree-desc">SHA-256 hash + size of every file in the archive</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name">top_level.txt</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name">LICENSE</span></div>
+    </div>
+  </div>
+
+  <!-- KEY FILES -->
+  <div class="section" id="s-files">
+    <h2>Key Files</h2>
+
+    <div class="file-block">
+      <div class="file-title">METADATA</div>
+      <div class="file-grid">
+        <pre class="file-sample">Metadata-Version: 2.1
+Name: numpy
+Version: 2.2.0
+Requires-Python: &gt;=3.10
+Requires-Dist: typing-extensions (&gt;=4.2)</pre>
+        <p class="prose">Dependencies live here. Historically, installers downloaded the entire wheel to read this. PEP 658 now lets PyPI serve it independently&mdash;the single largest speed improvement for dependency resolution. The long_description field is unbounded in size, which is why the extracted metadata can be surprisingly large.</p>
+      </div>
+    </div>
+
+    <div class="file-block">
+      <div class="file-title">WHEEL</div>
+      <div class="file-grid">
+        <pre class="file-sample">Wheel-Version: 1.0
+Generator: meson-python (0.15.0)
+Root-Is-Purelib: false
+Tag: cp313-cp313-manylinux_2_17_x86_64</pre>
+        <p class="prose">Describes the format, not the package. Root-Is-Purelib distinguishes pure Python from compiled extensions. The wheel spec dates to PEP 427 (2012) and has barely changed&mdash;PEP 777 attempted updates but stalled on backwards compatibility concerns.</p>
+      </div>
+    </div>
+
+    <div class="file-block">
+      <div class="file-title">RECORD</div>
+      <div class="file-grid">
+        <pre class="file-sample">numpy/__init__.py,sha256=7f3a...,2841
+numpy/core/_methods.py,sha256=9c2e...,14205
+...
+RECORD,,</pre>
+        <p class="prose">Every file listed with its hash and byte count. Used for integrity verification on install and precise file removal on uninstall. The RECORD file itself has no hash&mdash;it cannot checksum itself.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- CONSTRAINTS -->
+  <div class="section" id="s-limits">
+    <h2>Constraints</h2>
+    <div class="constraint-row">
+      <div class="constraint-label">Max file size</div>
+      <div class="constraint-value">~1 GB</div>
+      <div class="constraint-note">PyPI hard limit. Some projects need more but it requires manual intervention.</div>
+    </div>
+    <div class="constraint-row">
+      <div class="constraint-label">Filename length</div>
+      <div class="constraint-value">Unbounded</div>
+      <div class="constraint-note">No spec limit. OS limits apply (255 chars typical). Compiled multi-platform wheels push this.</div>
+    </div>
+    <div class="constraint-row">
+      <div class="constraint-label">Upload protocol</div>
+      <div class="constraint-value">1 req / file</div>
+      <div class="constraint-note">One HTTP POST per artifact. A project with 20 wheels means 20 requests.</div>
+    </div>
+    <div class="constraint-row">
+      <div class="constraint-label">Metadata scope</div>
+      <div class="constraint-value">Per artifact</div>
+      <div class="constraint-note">Not per-release. Each wheel can technically have different deps. uv enforces consistency; pip does not.</div>
+    </div>
+  </div>
+
+  <!-- VARIANTS -->
+  <div class="section" id="s-future">
+    <h2>PEP 825&mdash;Wheel Variants</h2>
+    <p class="prose">The current tag system cannot express GPU targets, SIMD instruction sets, or BLAS implementations. Projects like PyTorch bundle every variant into a single massive wheel and select code paths at runtime&mdash;an expensive workaround.</p>
+    <p class="prose">PEP 825 proposes variant labels: opaque strings appended to the filename that map to structured properties via the Simple API. Package authors define priority order. Installers can override. Variant wheels coexist with standard wheels for progressive enhancement&mdash;old installers ignore filenames they cannot parse.</p>
+    <pre class="variant-example">numpy-2.3.0-cp313-cp313-linux_x86_64+cuda12.whl
+
+Simple API mapping:
+  cuda12 --> gpu.cuda == 12, gpu.arch >= sm_80</pre>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    ${PEPS.map(([id, desc]) => `<div class="pep-ref"><div class="pep-ref-id">${id}</div><div class="pep-ref-desc">${desc}</div></div>`).join("")}
+  </footer>
+  `;
+}
+
+buildNav();
+buildContent();
+activate("filename");
+</script>
+</body>
+</html>
