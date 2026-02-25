@@ -495,7 +495,7 @@ RECORD,,</pre>
     <h2>PEP 817 (Draft)&mdash;Wheel Variants</h2>
     <p class="prose">The current tag system cannot express GPU targets, SIMD instruction sets, or BLAS implementations. Projects like PyTorch often publish separate CPU/CUDA/ROCm wheel builds and indexes as a workaround.</p>
     <p class="prose">PEP 817 (Draft) proposes variant labels that map to structured properties via the Simple API. Package authors can publish preference order, and installers can apply local overrides. As a draft proposal, details and compatibility behavior may still change.</p>
-    <pre class="variant-example">numpy-2.3.0-cp313-cp313-linux_x86_64+cuda12.whl
+    <pre class="variant-example">numpy-2.3.0-cp313-cp313-linux_x86_64-cuda12.whl
 
 Simple API mapping:
   cuda12 --> gpu.cuda == 12, gpu.arch >= sm_80</pre>
