@@ -306,7 +306,7 @@
   <header>
     <div class="kicker">Python Packaging Reference</div>
     <h1>Anatomy of a<br>Wheel File</h1>
-    <p class="subtitle">The .whl format is a renamed ZIP archive with a governed filename and a fixed internal structure. It is the standard distribution format for Python packages.</p>
+    <p class="subtitle">The .whl format is a ZIP archive with a governed filename and a fixed internal structure. It is the standard built-distribution format for Python packages.</p>
   </header>
 
   <nav id="nav"></nav>
@@ -330,7 +330,7 @@ const PEPS = [
   ["PEP 503", "Simple repository API"],
   ["PEP 658", "Metadata in Simple API"],
   ["PEP 777", "Wheel format updates"],
-  ["PEP 825", "Wheel variants"],
+  ["PEP 817", "Wheel variants (draft)"],
 ];
 
 function buildNav() {
@@ -373,8 +373,8 @@ function buildContent() {
         <div class="seg-label-group"><div class="seg-label-title">Platform</div><div class="seg-label-value" style="color:var(--blue)">manylinux_2_17_x86_64</div></div>
       </div>
     </div>
-    <p class="prose">A wheel is a ZIP archive with a governed filename. The name alone tells an installer everything it needs to determine compatibility&mdash;no download required, no code executed. pip and uv parse these tags against the host system and select the most specific match.</p>
-    <p class="prose">The three compatibility axes&mdash;Python version, ABI, and platform&mdash;are the only dimensions currently available. Pure Python packages use the universal tag <code style="color:var(--accent);font-family:var(--mono);font-size:14px">py3-none-any</code>. Compiled extensions must be precise: <code style="color:var(--blue);font-family:var(--mono);font-size:14px">cp313</code> locks to CPython 3.13, <code style="color:var(--blue);font-family:var(--mono);font-size:14px">manylinux_2_17_x86_64</code> encodes a minimum glibc of 2.17 on x86-64, and <code style="color:var(--blue);font-family:var(--mono);font-size:14px">musllinux</code> variants exist for Alpine. The platform tag is a composite of CPU architecture and OS, which is why Linux tags are more complex than <code style="color:var(--blue);font-family:var(--mono);font-size:14px">win_amd64</code> or <code style="color:var(--blue);font-family:var(--mono);font-size:14px">macosx_11_0_arm64</code>.</p>
+    <p class="prose">A wheel is a ZIP archive with a governed filename. The filename exposes compatibility tags (Python, ABI, platform) so installers can filter candidates before download. pip and uv parse these tags against the host system and select the most specific match.</p>
+    <p class="prose">The three compatibility axes&mdash;Python version, ABI, and platform&mdash;are the dimensions available in today&rsquo;s wheel tag system. Pure Python packages commonly use <code style="color:var(--accent);font-family:var(--mono);font-size:14px">py3-none-any</code> (while fully cross-Python-2/3 wheels used <code style="color:var(--accent);font-family:var(--mono);font-size:14px">py2.py3-none-any</code>). Compiled extensions must be precise: <code style="color:var(--blue);font-family:var(--mono);font-size:14px">cp313</code> locks to CPython 3.13, <code style="color:var(--blue);font-family:var(--mono);font-size:14px">manylinux_2_17_x86_64</code> encodes a minimum glibc of 2.17 on x86-64, and <code style="color:var(--blue);font-family:var(--mono);font-size:14px">musllinux</code> variants exist for Alpine. The platform tag is a composite of CPU architecture and OS, which is why Linux tags are more complex than <code style="color:var(--blue);font-family:var(--mono);font-size:14px">win_amd64</code> or <code style="color:var(--blue);font-family:var(--mono);font-size:14px">macosx_11_0_arm64</code>.</p>
   </div>
 
   <!-- TAGS -->
@@ -420,7 +420,7 @@ win_amd64</div>
       <div class="tree-item top-border"><span class="tree-name dir">numpy-2.2.0.dist-info/</span><span class="tree-desc">Metadata directory&mdash;the package manifest</span></div>
       <div class="tree-item" style="margin-left:24px"><span class="tree-name key">METADATA</span><span class="tree-desc">Name, version, dependencies, description</span></div>
       <div class="tree-item" style="margin-left:24px"><span class="tree-name key">WHEEL</span><span class="tree-desc">Format version, build tool, purity flag</span></div>
-      <div class="tree-item" style="margin-left:24px"><span class="tree-name key">RECORD</span><span class="tree-desc">SHA-256 hash + size of every file in the archive</span></div>
+      <div class="tree-item" style="margin-left:24px"><span class="tree-name key">RECORD</span><span class="tree-desc">Hash (typically SHA-256) + size for each file (RECORD itself is unhashed)</span></div>
       <div class="tree-item" style="margin-left:24px"><span class="tree-name">top_level.txt</span></div>
       <div class="tree-item" style="margin-left:24px"><span class="tree-name">LICENSE</span></div>
     </div>
@@ -438,7 +438,7 @@ Name: numpy
 Version: 2.2.0
 Requires-Python: &gt;=3.10
 Requires-Dist: typing-extensions (&gt;=4.2)</pre>
-        <p class="prose">Dependencies live here. Historically, installers downloaded the entire wheel to read this. PEP 658 now lets PyPI serve it independently&mdash;the single largest speed improvement for dependency resolution. The long_description field is unbounded in size, which is why the extracted metadata can be surprisingly large.</p>
+        <p class="prose">Dependencies live here. Historically, installers downloaded the entire wheel to read this. PEP 658 lets indexes like PyPI serve metadata independently, which can substantially reduce resolver download costs. Description content can be large, so extracted metadata can still be surprisingly big.</p>
       </div>
     </div>
 
@@ -449,7 +449,7 @@ Requires-Dist: typing-extensions (&gt;=4.2)</pre>
 Generator: meson-python (0.15.0)
 Root-Is-Purelib: false
 Tag: cp313-cp313-manylinux_2_17_x86_64</pre>
-        <p class="prose">Describes the format, not the package. Root-Is-Purelib distinguishes pure Python from compiled extensions. The wheel spec dates to PEP 427 (2012) and has barely changed&mdash;PEP 777 attempted updates but stalled on backwards compatibility concerns.</p>
+        <p class="prose">Describes the format, not the package. Root-Is-Purelib distinguishes pure Python from compiled extensions. The format originates in PEP 427 (2012) and is now maintained in the PyPA binary distribution spec; PEP 777 is a draft path for future wheel-version transitions.</p>
       </div>
     </div>
 
@@ -470,8 +470,8 @@ RECORD,,</pre>
     <h2>Constraints</h2>
     <div class="constraint-row">
       <div class="constraint-label">Max file size</div>
-      <div class="constraint-value">~1 GB</div>
-      <div class="constraint-note">PyPI hard limit. Some projects need more but it requires manual intervention.</div>
+      <div class="constraint-value">100 MB default</div>
+      <div class="constraint-note">PyPI default per-file limit. Projects can request higher limits from PyPI admins.</div>
     </div>
     <div class="constraint-row">
       <div class="constraint-label">Filename length</div>
@@ -492,9 +492,9 @@ RECORD,,</pre>
 
   <!-- VARIANTS -->
   <div class="section" id="s-future">
-    <h2>PEP 825&mdash;Wheel Variants</h2>
-    <p class="prose">The current tag system cannot express GPU targets, SIMD instruction sets, or BLAS implementations. Projects like PyTorch bundle every variant into a single massive wheel and select code paths at runtime&mdash;an expensive workaround.</p>
-    <p class="prose">PEP 825 proposes variant labels: opaque strings appended to the filename that map to structured properties via the Simple API. Package authors define priority order. Installers can override. Variant wheels coexist with standard wheels for progressive enhancement&mdash;old installers ignore filenames they cannot parse.</p>
+    <h2>PEP 817 (Draft)&mdash;Wheel Variants</h2>
+    <p class="prose">The current tag system cannot express GPU targets, SIMD instruction sets, or BLAS implementations. Projects like PyTorch often publish separate CPU/CUDA/ROCm wheel builds and indexes as a workaround.</p>
+    <p class="prose">PEP 817 (Draft) proposes variant labels that map to structured properties via the Simple API. Package authors can publish preference order, and installers can apply local overrides. As a draft proposal, details and compatibility behavior may still change.</p>
     <pre class="variant-example">numpy-2.3.0-cp313-cp313-linux_x86_64+cuda12.whl
 
 Simple API mapping:
